@@ -34,7 +34,8 @@ suppressPackageStartupMessages({
 
 # library(d3treeR)
 
-# setwd("C:/Users/aadama/OneDrive - Université Clermont Auvergne/UEMOA/App")
+# setwd('C:/Users/aadama/OneDrive - Université Clermont Auvergne/UEMOA/files/teWAEMU/App')
+
 
 # function 
 
@@ -49,7 +50,7 @@ GRD <- read_excel("data/GRD.xls")
 
 GRD <- GRD %>%
   rename(Country_Code = iso) %>%
-  mutate(Country_Code = ifelse(Country_Code == "KSV", "XKX", ifelse(Country_Code == "WBG", "PSE", iso))) %>%
+  mutate(Country_Code = ifelse(Country_Code == "KSV", "XKX", ifelse(Country_Code == "WBG", "PSE", Country_Code))) %>%
   select(-c(`group(iso)`, `=1 if General Govt data`, country))
 
 TaxVarGRD <- names(GRD)[c(12:(ncol(GRD)-4))]
@@ -128,16 +129,6 @@ oecdgrd <- GRD %>%
   
 oecdgrd <- oecdgrd %>% 
   mutate(
-    `Total tax and non-tax revenue as % of GDP` = case_when(
-      !is.na(`Total tax and non-tax revenue Revenue as % of GDP Total`) ~ `Total tax and non-tax revenue Revenue as % of GDP Total`, 
-      is.na(`Total tax and non-tax revenue Revenue as % of GDP Total`) ~ `Revenue including social contributions`
-    ),
-    `Total tax revenue as % GDP` = case_when(
-      !is.na(`Total tax revenue Revenue as % of GDP Total`) ~ `Total tax revenue Revenue as % of GDP Total`,
-      is.na(`Total tax revenue Revenue as % of GDP Total`)  ~ `Taxes including social contributions`
-    ),
-    `Non-resource tax excluding social contributions as % of GDP` = `Non-resource tax excluding social contributions`, 
-    `Direct taxes including social contributions and resource revenue as % of GDP` = `Direct taxes including social contributions and resource revenue`,
     `Taxes on income, profits and capital gains as % of GDP` = case_when(
       !is.na(`1000 Taxes on income, profits and capital gains Revenue as % of GDP Total`) ~ `1000 Taxes on income, profits and capital gains Revenue as % of GDP Total`, 
       is.na(`1000 Taxes on income, profits and capital gains Revenue as % of GDP Total`) ~ `Taxes on income, profits, and capital gains`
@@ -196,6 +187,66 @@ oecdgrd <- oecdgrd %>%
     )
     
   ) 
+
+
+oecdgrd <- oecdgrd %>%
+  mutate(
+    `Total tax and non-tax revenue as % of GDP` = coalesce(`Total tax and non-tax revenue Revenue as % of GDP Total`, `Revenue including social contributions`),
+    `Total tax revenue as % GDP` = coalesce(`Total tax revenue Revenue as % of GDP Total`, `Taxes including social contributions`),
+    `Non-resource tax excluding social contributions as % of GDP` = `Non-resource tax excluding social contributions`, 
+    `Direct taxes including social contributions and resource revenue as % of GDP` = `Direct taxes including social contributions and resource revenue`,
+    `Taxes on income, profits and capital gains as % of GDP` = coalesce(`1000 Taxes on income, profits and capital gains Revenue as % of GDP Total`, 
+      `Taxes on income, profits, and capital gains`
+    ),
+    `Taxes on income, profits and capital gains of individuals % as of GDP` = coalesce(
+      `1100 Taxes on income, profits and capital gains of individuals Revenue as % of GDP Total`, 
+      Individuals
+    ),
+    `Taxes on income, profits and capital gains of corporates as % GDP` = coalesce(
+      `1200 Taxes on income, profits and capital gains of corporates Revenue as % of GDP Total`, 
+      `Corporations and other enterprises`
+    ),
+    `On profits of corporates as % GDP` = `1210 On profits of corporates Revenue as % of GDP Total`,
+    `On capital gains of corporates as % of GDP` = `1220 On capital gains of corporates Revenue as % of GDP Total`,
+    `Indirect as % of GDP` = Indirect ,
+    `Taxes on goods and services as % of GDP` = coalesce(`5000 Taxes on goods and services Revenue as % of GDP Total`, `Taxes on goods and services,                Total`
+    ),
+    `Value added taxes as % of GDP` = coalesce(
+      `5111 Value added taxes Revenue as % of GDP Total`, VAT
+    ),
+    `Sales tax % of GDP` = coalesce(
+      `5112 Sales tax Revenue as % of GDP Total`, 
+      `Taxes on goods and services, of which Taxes on Sales`
+    ),
+    `Excises % of GDP` = coalesce(
+      `5121 Excises Revenue as % of GDP Total`, 
+      `Taxes on goods and services, of which Excises`
+    ),
+    `Customs and import duties % of GDP` = coalesce(
+      `5123 Customs and import duties Revenue as % of GDP Total`, 
+      `Taxes on international trade and transactions Of which Import`
+    ),
+    `Taxes on exports % of GDP` = coalesce(
+      `5124 Taxes on exports Revenue as % of GDP Total`, 
+      `Taxes on international trade and transactions Of which Export`
+    ),
+    `Taxes on payroll and workforce % of GDP` = coalesce(
+      `3000 Taxes on payroll and workforce Revenue as % of GDP Total`, 
+      `Taxes on payroll and workforce`
+    ),
+    `Taxes on property % of GDP` = coalesce(
+      `4000 Taxes on property Revenue as % of GDP Total`, 
+      `Taxes on property`
+    ),
+    `Total non-tax revenue % of GDP` = coalesce(
+      `Total non-tax revenue Revenue as % of GDP Total`, 
+      `Consolidated Non-Tax Revenue`
+    ),
+    `Non-tax revenue: Rents and royalties % of GDP` = coalesce(
+      `Non-tax revenue: Rents and royalties Revenue as % of GDP Total`, 
+      `Total Resource Revenue`
+    )
+  )
 
 
 
