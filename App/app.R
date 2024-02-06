@@ -152,6 +152,7 @@ oecdgrd <- oecdgrd %>%
     `Value added taxes as % of GDP` = coalesce(`5111 Value added taxes Revenue as % of GDP Total`, VAT),
     `Sales tax % of GDP` = coalesce(`5112 Sales tax Revenue as % of GDP Total`, `Taxes on goods and services, of which Taxes on Sales`),
     `Excises % of GDP` = coalesce(`5121 Excises Revenue as % of GDP Total`, `Taxes on goods and services, of which Excises`),
+    `Taxes on international trade and transactions % of GDP` = `Taxes on international trade and transactions, Total`,
     `Customs and import duties % of GDP` = coalesce(`5123 Customs and import duties Revenue as % of GDP Total`, `Taxes on international trade and transactions Of which Import`),
     `Taxes on exports % of GDP` = coalesce(`5124 Taxes on exports Revenue as % of GDP Total`, `Taxes on international trade and transactions Of which Export`),
     `Taxes on payroll and workforce % of GDP` = coalesce(`3000 Taxes on payroll and workforce Revenue as % of GDP Total`, `Taxes on payroll and workforce`),
@@ -166,49 +167,31 @@ oecdafr <- oecdafr %>%
   select(-c(`Unit Code`, Unit, `PowerCode Code`, PowerCode, `Reference Period Code`, `Reference Period`, `Flag Codes`, Flags, YEA, VAR, TAX, GOV)) %>%
   rename(Country_Code = COU)
 
-
-oecdTaxVar <- c("Total tax and non-tax revenue", "Total tax revenue",
-                "1000 Taxes on income, profits and capital gains",
-                "2000 Social security contributions (SSC)",
-                "3000 Taxes on payroll and workforce",
-                "4000 Taxes on property",
-                "5000 Taxes on goods and services",
-                "5111 Value added taxes",
-                "5121 Excises", "5123 Customs and import duties",
-                "5124 Taxes on exports",
-                "Total non-tax revenue",
-                "Total non-tax revenue excluding grants",
-                "Non-tax revenue: Rents and royalties",
-                "Total tax revenues not including social security contributions")
+oecdTaxVar <- c("Total tax and non-tax revenue", "Total tax revenue", "1000 Taxes on income, profits and capital gains", 
+                "2000 Social security contributions (SSC)", "3000 Taxes on payroll and workforce", "4000 Taxes on property",
+                "5000 Taxes on goods and services", "5111 Value added taxes", "5121 Excises", "5123 Customs and import duties",
+                "5124 Taxes on exports", "Total non-tax revenue", "Total non-tax revenue excluding grants",
+                "Non-tax revenue: Rents and royalties", "Total tax revenues not including social security contributions")
 
 
-
-# oecdTaxVar <- c("Total tax and non-tax revenue")
- 
 bceaoMacro <- fread("data/bceaoMacro.csv", header = FALSE, fill = TRUE,
                     stringsAsFactors = FALSE, na.strings = c("" ,"n/a", "NA", "-"))
 
 listP <- c("COTE D'IVOIRE","BENIN","BURKINA FASO","MALI","NIGER","SENEGAL","GUINEE BISSAU","TOGO")
 
-
 bceaoMacro <- bceaoMacro %>%
   filter_all(any_vars(!is.na(.))) %>%
-  select(
-    where(
-      ~!all(is.na(.x))
-    )
+  select(where(~!all(is.na(.x)))
   ) %>%
   mutate(PAYS = rep(listP, each = 21)) %>%
   select(PAYS, everything()) %>%
   filter(!is.na(V2))
 
-namesCol <- as.character(bceaoMacro[1, ])[-1]
-
+namesCol <- as.character(bceaoMacro[1, -1])
 names(bceaoMacro)[-1] <- namesCol
 
 bceaoMacro <- bceaoMacro %>%
   filter(!(CODE %in% "CODE"))
-
 
 bceaoMacro <- pivot_longer(bceaoMacro, cols = `1980`:`2023`, names_to = "ANNEE", 
                            values_to = "value", values_transform = list(value = as.numeric))
@@ -219,16 +202,13 @@ bceaoTofe <- fread("data/bceaoTofe.csv", header = FALSE, fill = TRUE,
 
 bceaoTofe <- bceaoTofe %>%
   filter_all(any_vars(!is.na(.))) %>%
-  select(
-    where(
-      ~!all(is.na(.x))
-    )
+  select(where(~!all(is.na(.x)))
   ) %>%
   mutate(PAYS = rep(listP, each = 72)) %>%
   select(PAYS, everything()) %>%
   filter(!is.na(V2))
 
-namesCol <- as.character(bceaoTofe[1, ])[-1]
+namesCol <- as.character(bceaoTofe[1, -1])
 
 names(bceaoTofe)[-1] <- namesCol
 
@@ -241,15 +221,11 @@ bceaoTofe <- pivot_longer(bceaoTofe, cols = `1980`:`2023`, names_to = "ANNEE",
 bceao <- bceaoMacro %>%
   bind_rows(bceaoTofe)
 
-
 remove(bceaoMacro, bceaoTofe)
 
 bceao <- pivot_wider(bceao, id_cols = c(PAYS, ANNEE), 
                      names_from = c(LIBELLE, `UNITE DE MESURE`, MAGNITUDE, `TYPE SERIE`),
                      names_sep = " ", values_from = value)
-
-# bceao <- bceao %>%
-#   select(PAYS, ANNEE, all_of(bceaoVar))
 
 bceao <- bceao %>%
   select(PAYS, ANNEE, everything())
@@ -288,30 +264,11 @@ bceao <- bceao %>%
 oecdgrd <- oecdgrd %>%
   full_join(bceao, by = c("Country_Code", "year"))
 
-# oecdgrd %>%
-#   select(c(Country_Code, year, `Total tax and non-tax revenue as % of GDP`, `Total tax revenue as % GDP`, 
-#            `Taxes on international trade and transactions % of GDP`, `Total non-tax revenue % of GDP`)) %>%
-#   View()
-
 oecdgrd <- oecdgrd %>% 
   mutate(
-    `Total tax and non-tax revenue as % of GDP` = case_when(
-      !is.na(`Total tax and non-tax revenue as % of GDP`) ~ `Total tax and non-tax revenue as % of GDP`, 
-      is.na(`Total tax and non-tax revenue as % of GDP`) ~ `Total revenue including grants`
-    ),
-    `Total tax revenue as % GDP` = case_when(
-      !is.na(`Total tax revenue as % GDP`) ~ `Total tax revenue as % GDP`,
-      is.na(`Total tax revenue as % GDP`)  ~ `Tax revenue`
-    ),
-    # `Taxes on international trade and transactions % of GDP` =  case_when(
-    #   !is.na(`Taxes on international trade and transactions % of GDP`) ~ `Taxes on international trade and transactions % of GDP`, 
-    #   is.na(`Taxes on international trade and transactions % of GDP`)  ~ `Tax on international trade`
-    # ),
-    `Total non-tax revenue % of GDP` = case_when(
-      !is.na(`Total non-tax revenue % of GDP`) ~ `Total non-tax revenue % of GDP`,
-      is.na(`Total non-tax revenue % of GDP`)  ~ `Nontax revenue`
-    )
-    
+    `Total tax and non-tax revenue as % of GDP` = coalesce(`Total tax and non-tax revenue as % of GDP`, `Total revenue including grants`),
+    `Total tax revenue as % GDP` = coalesce(`Total tax revenue as % GDP`, `Tax revenue`),
+    `Total non-tax revenue % of GDP` = coalesce(`Total non-tax revenue % of GDP`, `Nontax revenue`)
   ) 
 
 oecdgrdSelectedVar <- oecdgrd %>% 
@@ -322,9 +279,8 @@ oecdgrdSelectedVar <- oecdgrd %>%
          `Taxes on income, profits and capital gains as % of GDP`, 
          `Taxes on income, profits and capital gains of individuals % as of GDP`, 
          `Taxes on income, profits and capital gains of corporates as % GDP`, 
-         `On profits of corporates as % GDP`, 
-         `On capital gains of corporates as % of GDP`, `Indirect as % of GDP`, 
-         `Taxes on goods and services as % of GDP`, 
+         `On profits of corporates as % GDP`, `On capital gains of corporates as % of GDP`, 
+         `Indirect as % of GDP`, `Taxes on goods and services as % of GDP`, 
          `Value added taxes as % of GDP`, `Sales tax % of GDP`, `Excises % of GDP`, 
          `Taxes on international trade and transactions % of GDP`, 
          `Customs and import duties % of GDP`, `Taxes on exports % of GDP`, 
@@ -362,7 +318,6 @@ Identifier <- groupsWB %>%
   left_join(tbloc, by = "Country_Code") %>%
   select(Country_Code, Country_Name, Region, `Income group`, `Lending category`, `Trading Bloc`, everything()) %>%
   mutate(
-    
     `Africa Zones` = case_when(
       `Group var: Africa Eastern and Southern` %in% 1 ~ "Group var: Africa Eastern and Southern", 
       `Group var: Africa Western and Central`  %in% 1 ~ "Group var: Africa Western and Central"
@@ -399,15 +354,6 @@ names(CountriesWorldList)[names(CountriesWorldList) == "HCountryName"] <- "Count
 
 CountriesWorldList <- CountriesWorldList[!is.na(Country_Code), c("Country_Code", "Country_Name"), with = FALSE]
 
-# dat %>% 
-#   mutate(
-#     across(
-#       .cols = everything(),
-#       .fns = rank,
-#       .names = "{.col}_rank"
-#     )
-#   )
-
 world_map <- map_data("world")
 world_map$Country_Code <- countrycode::countrycode(sourcevar = world_map$region, origin = "country.name", destination = "iso3c")
 world_map[world_map$region %in% "Virgin Islands", "Country_Code"] <- "VIR"
@@ -439,22 +385,26 @@ dfweo <- fread("data/WEOOct2023all.xls", stringsAsFactors = FALSE, na.strings = 
 # Remove rows without data in column ISO
 dfweo <- dfweo[!is.na(ISO), ]
 
-# Get columns information from the file to identify where identifiers stop and where data start
-eidcol <- which(colnames(dfweo)=="1980")-1
-smcol <- which(colnames(dfweo)=="1980")
-emcol <- ncol(dfweo)-1
+# Identify column ranges: Get columns information from the file to identify where identifiers stop and where data start
+eidcol <- grep("1980", colnames(dfweo), fixed = TRUE) - 1
+smcol <- grep("1980", colnames(dfweo), fixed = TRUE)
+emcol <- ncol(dfweo) - 1
 ecoldata <- ncol(dfweo)
 col2cvt <- smcol:emcol
-dfweo[,col2cvt] <- lapply(dfweo[,..col2cvt],function(x){as.numeric(gsub(",", "", x))})
+
+# Convert columns to numeric
+dfweo[, (col2cvt) := lapply(.SD, function(x) as.numeric(gsub(",", "", x))), .SDcols = col2cvt]
+#dfweo[,col2cvt] <- lapply(dfweo[,..col2cvt],function(x){as.numeric(gsub(",", "", x))})
 
 # Reshape and organize
+dfweoPanel <- melt.data.table(dfweo, id.vars = c(1:eidcol, ecoldata), 
+                   measure.vars = col2cvt, 
+                   variable.name = "Year")
 
-dfweoPanel <- melt.data.table(dfweo, id = c(1:eidcol, ecoldata), 
-                              measure.vars = c(smcol:emcol), 
-                              variable.name = "Year")
+# Rename columns
 names(dfweoPanel)[1] <- "WEOCountryCode"
-names(dfweoPanel)[3] <- "Variable_code"
 
+# Create Variables column
 dfweoPanel[, Variables := paste(`Subject Descriptor`, Units, Scale, sep = " - ")]
 
 dfweoPanel <- dcast.data.table(data = dfweoPanel,
@@ -463,6 +413,7 @@ dfweoPanel <- dcast.data.table(data = dfweoPanel,
 
 names(dfweoPanel) <- gsub(' - NA', "", names(dfweoPanel))
 
+# Rename columns and adjust values
 dfweoPanel <- dfweoPanel %>%
   rename(iso3 = ISO, year = Year)
 
@@ -473,25 +424,23 @@ dfweoPanel[dfweoPanel$iso3 == "STP", "Country"] <- "Sao Tome and Principe"
 
 dfweoPanel$year <- as.numeric(as.character(dfweoPanel$year))
 
+# Convert to data.table
 dfweoPanel <- setDT(dfweoPanel)
 
 cols.num <- names(dfweoPanel)[!names(dfweoPanel) %in% c("iso3", "Country", "WEOCountryCode", "year")]
-
 dfweoPanel <- dfweoPanel[, (cols.num) := lapply(.SD, as.numeric), .SDcols = cols.num]
 
+# Filter and select columns
 dfweoPanel <-  dfweoPanel %>%
   filter(year < 2023) %>%
   select(Country_Code = iso3, year, everything()) %>%
   select(-WEOCountryCode, Country)
 
-
 remove(dfweo)
 
-dataApp <- dataApp %>%
-  left_join(dfweoPanel, by = c("Country_Code", "year"))
+dataApp <- dataApp %>% left_join(dfweoPanel, by = c("Country_Code", "year"))
 
-dataALL <- dataALL %>%
-  left_join(dfweoPanel, by = c("Country_Code", "year"))
+dataALL <- dataALL %>% left_join(dfweoPanel, by = c("Country_Code", "year"))
 
 hdi <- fread("data/human-development-index.csv", stringsAsFactors = FALSE, na.strings = c("", "n\a", "NA", "..", "n/a", "--"))
 
@@ -500,12 +449,9 @@ hdi <- hdi %>%
   rename(year = Year, Country_Code = Code) %>%
   select(-Entity)
 
-dataApp <- dataApp %>%
-  left_join(hdi,  by = c("Country_Code", "year"))
+dataApp <- dataApp %>% left_join(hdi,  by = c("Country_Code", "year"))
 
-
-dataALL <- dataALL %>%
-  left_join(hdi, by = c("Country_Code", "year"))
+dataALL <- dataALL %>% left_join(hdi, by = c("Country_Code", "year"))
 
 
 wdi <- fread("data/wdi/Data.csv", stringsAsFactors = FALSE, na.strings = c("", "n\a", "NA", "..", "n/a", "--"))
@@ -525,27 +471,17 @@ wdi <- wdi %>%
 
 wdi <- wdi %>%
   mutate(
-    `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS]` = case_when(
-      !is.na(`Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`) ~ `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`, 
-      is.na(`Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`) ~ `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].x`
+    `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS]` = coalesce(
+      `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`, `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].x`
     ), 
-    `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS]` = case_when(
-      !is.na(`Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`) ~ `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`,
-      is.na(`Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`) ~ `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].x`
+    `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS]` = coalesce(
+      `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`, `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].x`
     ), 
     `Net official development assistance and official aid received (% of GDP)` = 100*(`Net official development assistance and official aid received (current US$) [DT.ODA.ALLD.CD]` /`GDP (current US$) [NY.GDP.MKTP.CD]`),
     `Net official development assistance received (% of GDP)` = 100*(`Net official development assistance received (current US$) [DT.ODA.ODAT.CD]`/`GDP (current US$) [NY.GDP.MKTP.CD]`)
   ) %>%
   select(-c(`Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`, `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].x`,
             `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`, `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].x`))
-
-
-# wdi %>%
-#   select(`Country Name`, year,
-#     `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].x`, `Imports of goods and services (% of GDP) [NE.IMP.GNFS.ZS].y`, 
-#          `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].x`, `Exports of goods and services (% of GDP) [NE.EXP.GNFS.ZS].y`, 
-#     `Personal remittances, received (% of GDP) [BX.TRF.PWKR.DT.GD.ZS].x` , `Personal remittances, received (% of GDP) [BX.TRF.PWKR.DT.GD.ZS].y`   ) %>%
-#   summary()
 
 dataApp <- dataApp %>%
   left_join(wdi,  by = c("Country_Code", "year")) %>%
@@ -557,7 +493,11 @@ dataApp <- dataApp %>%
   select(-Old_Country_Name) %>%
   filter(!is.na(Country_Code)) %>%
   select(Country_Code, Country_Name, Year, everything())
-  
+
+dataApp <- dataApp %>%
+  mutate(across(starts_with("GDP per capita ("), list(Squared = ~ .^2), .names = "Squared {.col}")) %>%
+  mutate(across(starts_with("GDP per capita, PPP"), list(Squared = ~ .^2), .names = "Squared {.col}")) %>%
+  mutate(across(starts_with("Gross domestic product per capita"), list(Squared = ~ .^2), .names = "Squared {.col}"))
 
 
 dataALL <- dataALL %>%
@@ -571,6 +511,11 @@ dataALL <- dataALL %>%
   filter(!is.na(Country_Code)) %>%
   select(Country_Code, Country_Name, Year, everything())
 
+dataALL <- dataALL %>%
+  mutate(across(starts_with("GDP per capita ("), list(Squared = ~ .^2), .names = "Squared {.col}")) %>%
+  mutate(across(starts_with("GDP per capita, PPP"), list(Squared = ~ .^2), .names = "Squared {.col}")) %>%
+  mutate(across(starts_with("Gross domestic product per capita"), list(Squared = ~ .^2), .names = "Squared {.col}"))
+
 GRPVAR <- c("Region", "Income group", "Lending category", "Trading Bloc", "Africa Zones", 
             "Demographic dividend", "Small states", "Group var: Arab World", 
             "Group var: Central Europe and the Baltics", "Group var: Euro area", 
@@ -579,16 +524,12 @@ GRPVAR <- c("Region", "Income group", "Lending category", "Trading Bloc", "Afric
             "Group var: Heavily indebted poor countries (HIPC)", "Group var: Least developed countries: UN classification")
 
 
-cSSA <- c("Angola", "Botswana", "Burundi", "Comoros", "Congo, Dem. Rep.", 
-          "Eritrea", "Eswatini", "Ethiopia", "Kenya", "Lesotho",
-          "Madagascar", "Malawi", "Mauritius", "Mozambique", "Namibia", 
-          "Rwanda", "São Tomé and Príncipe", "Seychelles", "Somalia", "South Africa", 
-          "South Sudan", "Sudan", "Tanzania", "Uganda", "Zambia", 
-          "Zimbabwe", "Benin", "Burkina Faso", "Cabo Verde", "Cameroon",
-          "Central African Republic", "Chad", "Congo, Rep.", "Côte d’Ivoire", "Equatorial Guinea",
-          "Gabon", "Gambia, The", "Ghana", "Guinea", "Guinea-Bissau",
-          "Liberia", "Mali", "Mauritania", "Niger", "Nigeria",
-          "Senegal", "Sierra Leone", "Togo")
+cSSA <- c("Angola", "Botswana", "Burundi", "Comoros", "Congo, Dem. Rep.", "Eritrea", "Eswatini", "Kenya", "Lesotho", 
+          "Madagascar", "Malawi", "Mauritius", "Mozambique", "Namibia", "Rwanda", "São Tomé and Príncipe", "Seychelles", 
+          "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Uganda", "Zambia", "Zimbabwe", "Benin", 
+          "Burkina Faso", "Cabo Verde", "Cameroon", "Central African Republic", "Chad", "Congo, Rep.", "Côte d’Ivoire", 
+          "Equatorial Guinea", "Gabon", "Gambia, The", "Ghana", "Guinea", "Guinea-Bissau", "Liberia", "Mali", "Mauritania", 
+          "Niger", "Nigeria", "Senegal", "Sierra Leone", "Togo")
 
 cUEMOA <- Identifier[Identifier$Country_Name %in% c("Benin", "Burkina Faso", "Côte d’Ivoire", "Guinea-Bissau", "Mali", "Niger", "Senegal", "Togo"), "Country_Code"]
 
@@ -597,189 +538,202 @@ cUEMOA <- as.vector(cUEMOA$Country_Code)
 
 
 # Define UI for app  ----
-ui <- tagList(useShinyjs(),
-              #themeSelector(),
-              tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "style.css")),
-              navbarPage("Tax Effort Analysis", theme = shinytheme("flatly"),
-                
-                tabPanel(title = tags$div("Description", class = "tabname"),
-                         tags$br(),
-                         fluidRow(column(1),
-                                  column(6, align="justify",
-                                         fluidRow(tags$div("Description of the Dashboard", class ="Title1T"),
-                                                  align = "center"),
-                                         tags$br(),
-                                         tags$br(),
-                                         
-                                         fluidRow(
-                                           column(12, 
-                                                  tags$div(
-                                                  )
-                                           )
-                                         )
-                                  ),
-                                  column(4,
-                                         fluidRow(
-                                           column(1),
-                                           column(11,
-                                                  tags$div("About the Application", class ="Title1T"),
-                                                  HTML("
-                                          <h4 style ='font-family:garamond;color:#0000b3;'> Team: </h4>
-                                          <ul>
-                                          <li><strong>Alou Adess&eacute; Dama</strong>, FERDI</li>
-                                          <li><strong>Anouck Daubree</strong>, FERDI</li>
-                                          <li><strong>Gr&eacutegoire Rota-Graziosi</strong>, UCA-CERDI-CNRS</li>
-
-                                          </ul>
-                                          </p>
-                                          <h4 style ='font-family:garamond;color:#0000b3;'>Developper:</h4>
-                                          <p>
-                                          <ul>
-                                          <li><strong>Alou Adess&eacute; Dama</strong>, Ph.D in Economics from UCA-CERDI-CNRS.</li>
-                                          </ul>
-                                          </p>"),
-                                                  HTML("<h4 style ='font-family:garamond;color:#0000b3;'>Affiliations:</h4>"),
-                                                  tags$br(),
-                                                  
-                                                  fluidRow(align ="center",
-                                                    column(1),
-                                                    column(5, tags$img(src ="Logo_Ferdi.jpg", height = 90)),
-                                                    column(4, tags$img(src ="logo_UCA.jpg", height = 100)),
-                                                    
-                                                  ),
-                                                  tags$br(),
-                                                  tags$br(),
-                                                  fluidRow(align ="center",
-                                                    column(1),
-                                                    column(4, tags$img(src ="LOGO_CNRS_2019_RVB.PNG", height = 130)),
-                                                    column(5, tags$img(src ="logo_CERDI_UCA-01.jpg", height = 140))
-                                                  ),
-                                                  tags$br(),
-                                                  tags$br(),
-                                                  tags$div(
-                                                    tags$p("Report bugs to ...")
-                                                  )
-                                           )
-                                         )
-                                  ))
+ui <- tagList(
+  useShinyjs(),
+  #themeSelector(),
+  tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "style.css")),
+  navbarPage("Tax Effort Analysis", theme = shinytheme("flatly"),
+             
+             tabPanel(
+               title = tags$div("Description", class = "tabname"),
+               tags$br(),
+               
+               fluidRow(
+                 column(1),
+                 column(
+                   6, align="justify",
+                   fluidRow(
+                     tags$div("Description of the Dashboard", class ="Title1T"), align = "center"
+                   ),
+                   tags$br(),
+                   tags$br(),
+                   fluidRow(
+                     column(
+                       12, 
+                       tags$div(
+                       )
+                     )
+                   )
+                  ),
+                 column(
+                   4,
+                   fluidRow(
+                     column(1),
+                     column(
+                       11,
+                       tags$div("About the Application", class ="Title1T"),
+                       HTML(
+                       "
+                       <h4 style ='font-family:garamond;color:#0000b3;'> Team: </h4>
+                       <ul>
+                       <li><strong>Alou Adess&eacute; Dama</strong>, FERDI</li>
+                       <li><strong>Anouck Daubree</strong>, FERDI</li>
+                       <li><strong>Gr&eacutegoire Rota-Graziosi</strong>, UCA-CERDI-CNRS</li>
+                       </ul>
+                       </p>
+                       <h4 style ='font-family:garamond;color:#0000b3;'>Developper:</h4>
+                       <p>
+                       <ul>
+                       <li><strong>Alou Adess&eacute; Dama</strong>, Ph.D in Economics from UCA-CERDI-CNRS.</li>
+                       </ul>
+                       </p>
+                       "
+                      ),
+                      HTML(
+                        "<h4 style ='font-family:garamond;color:#0000b3;'>Affiliations:</h4>"
+                        ),
+                      tags$br(),
+                      fluidRow(
+                        align ="center", column(1),
+                        column(5, tags$img(src ="Logo_Ferdi.jpg", height = 90)),
+                        column(4, tags$img(src ="logo_UCA.jpg", height = 100))
+                        ),
+                      tags$br(),
+                      tags$br(),
+                      fluidRow(
+                        align ="center", column(1),
+                        column(4, tags$img(src ="LOGO_CNRS_2019_RVB.PNG", height = 130)),
+                        column(5, tags$img(src ="logo_CERDI_UCA-01.jpg", height = 140))
+                      ),
+                      tags$br(),
+                      tags$br(),
+                      tags$div(
+                        tags$p("Report bugs to ...")
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+            
+            tabPanel(
+              title = tags$div("Tables for the Report", class = "tabname"),
+              br(),
+              sidebarLayout(
+                sidebarPanel = sidebarPanel(
+                ),
+                mainPanel = mainPanel(
+                  fluidRow(
+                    tags$div("Tax and non-tax revenue", class = "TitleText"), align = "center"
+                  ),
+                  fluidRow(
+                    column(1), 
+                    column(10, "The following table reports tax and non-tax revenue data for WAEMU and individual countries. 
+                           The data combine OECD Revenue statistics in Africa 2023 and the latest version of UNIWIDER Government Revenue dataset"
+                    )
+                  ),
+                  fluidRow(
+                    column(3, uiOutput("preambule_uiF")), 
+                    column(8, uiOutput("addallvar_uiF")),
+                    dataTableOutput("preambuleTabF")
+                  ),
+                  br(), 
+                  br(),
+                  fluidRow(
+                    column(1), 
+                    column(10, "The following table provides international comparison for selected tax variables for individual WAEMU countries.")
+                  ),
+                  fluidRow(
+                    column(3, uiOutput("TabTwoC_ui")), 
+                    column(3, uiOutput("tabTwoY_ui")),
+                    dataTableOutput("TabComparison")
+                  ),
+                  br(), 
+                  br(),
+                  fluidRow(column(1), 
+                           column(10, "For the record: the following table reports tax and non-tax revenue data for WAEMU and individual countries. 
+                                             Here the data include only UNIWIDER Government Revenue dataset")
+                  ),
+                  fluidRow(
+                    column(3, uiOutput("preambule_ui")), 
+                    column(7, uiOutput("addallvar_ui")),
+                    dataTableOutput("preambuleTab")
+                  ),
+                  br(), 
+                  br(), 
+                  fluidRow(column(1), 
+                           column(10, "For the record: the following table reports tax and non-tax revenue data for WAEMU and individual countries. 
+                                             Here the data include only OECD Revenue statistics in Africa 2023")
+                  ),
+                  fluidRow(
+                    column(3, uiOutput("preambule_ui1")),
+                    column(7, uiOutput("addallvar_ui1")),
+                    dataTableOutput("preambuleTab1")
+                  ),
+                  br(), 
+                  br()
+                )
+              )
+              
+            ),
+            
+            tabPanel(
+              title = tags$div("Tables", class = "tabname"),
+              br(),
+              sidebarLayout(
+                sidebarPanel = sidebarPanel(
+                ),
+                mainPanel = mainPanel(
+                  fluidRow(
+                    tags$div("Tax and non-tax revenue", class = "TitleText"), 
+                    align = "center"
+                  ),
+                  
+                  fluidRow(
+                    column(1), 
+                    column(10, "The following table reports tax and non-tax revenue data for WAEMU and individual countries. 
+                           The data combine OECD Revenue statistics in Africa 2023 and the latest version of UNIWIDER Government Revenue dataset")
+                  ),
+                  fluidRow(
+                    column(3, uiOutput("tableAllC_ui")), 
+                    column(8, uiOutput("tableallcAddvar_ui")), 
+                    dataTableOutput("tableAllCTab")
+                  ),
+                  br(), 
+                  br()
+                )
+              )
+              
+            ), 
+            
+            # ---------------------------------------------------------
+            #                     Graphical analysis
+            #----------------------------------------------------------
+            
+            tabPanel(
+              title = tags$div("Graphical analysis", class = "tabname"),
+              br(),
+              sidebarLayout(
+                # sidebar panel 
+                sidebarPanel(
+                  width = 4,
+                  fluidRow(
+                    selectInput("choose_graph", label = tags$div("Select graph", class ="TitleInput"),
+                                choices = c("Choisir" = "",
+                                            "Scatter plot" = "Nuage de points", "Histogram" = "Histogramme", 
+                                            "Bar plot" = "Barplot", "Line plot" = "Evolution temporelle",
+                                            "Treemap","Map" = "map"
+                                            ),
+                                selected = "Nuage de points")),
+                  uiOutput("input_graphic")
                 ),
                 
-                tabPanel(title = tags$div("Tables for the Report", class = "tabname"),
-                         br(),
-                         sidebarLayout(
-                           sidebarPanel = sidebarPanel(
-                           ),
-                           mainPanel = mainPanel(
-                             
-                          
-                             fluidRow(
-                               tags$div("Tax and non-tax revenue", class = "TitleText"), 
-                               align = "center"
-                               ),
-                             fluidRow(column(1), 
-                                      column(10, "The following table reports tax and non-tax revenue data for WAEMU and individual countries. 
-                                             The data combine OECD Revenue statistics in Africa 2023 and the latest version of UNIWIDER Government Revenue dataset")),
-                             fluidRow(
-                               column(3, uiOutput("preambule_uiF")), 
-                               column(8, uiOutput("addallvar_uiF")),
-                               dataTableOutput("preambuleTabF")
-                             ),
-                             br(), 
-                             br(), 
-                             
-                             
-                             fluidRow(column(1), 
-                                      column(10, "The following table provides international comparison for selected tax variables for individual WAEMU countries.")),
-                             fluidRow(
-                               column(3, uiOutput("TabTwoC_ui")), 
-                               column(3, uiOutput("tabTwoY_ui")),
-                               dataTableOutput("TabComparison")
-                             ),
-                             br(), 
-                             br(), 
-                             fluidRow(column(1), 
-                                      column(10, "For the record: the following table reports tax and non-tax revenue data for WAEMU and individual countries. 
-                                             Here the data include only UNIWIDER Government Revenue dataset")),
-                             fluidRow(
-                               column(3, uiOutput("preambule_ui")), 
-                               column(7, uiOutput("addallvar_ui")),
-                               dataTableOutput("preambuleTab")
-                             ),
-                             br(), 
-                             br(), 
-                             fluidRow(column(1), 
-                                      column(10, "For the record: the following table reports tax and non-tax revenue data for WAEMU and individual countries. 
-                                             Here the data include only OECD Revenue statistics in Africa 2023")),
-                             fluidRow(
-                               column(3, uiOutput("preambule_ui1")),
-                               column(7, uiOutput("addallvar_ui1")),
-                               dataTableOutput("preambuleTab1")
-                             ),
-                             br(), 
-                             br()
-
-                         )
-                         )
-                ), 
-                
-                
-                tabPanel(title = tags$div("Tables", class = "tabname"),
-                         br(),
-                         sidebarLayout(
-                           sidebarPanel = sidebarPanel(
-                           ),
-                           mainPanel = mainPanel(
-                             
-                             
-                             fluidRow(
-                               tags$div("Tax and non-tax revenue", class = "TitleText"), 
-                               align = "center"
-                             ),
-                             fluidRow(column(1), 
-                                      column(10, "The following table reports tax and non-tax revenue data for WAEMU and individual countries. 
-                                             The data combine OECD Revenue statistics in Africa 2023 and the latest version of UNIWIDER Government Revenue dataset")),
-                             
-                             fluidRow(
-                               column(3, uiOutput("tableAllC_ui")), 
-                               column(8, uiOutput("tableallcAddvar_ui")), 
-                               dataTableOutput("tableAllCTab")
-                             ),
-                             br(), 
-                             br()
-                             
-                           )
-                         )
-                ), 
-                
-                
-                # ---------------------------------------------------------
-                # Graphical analysis
-                #----------------------------------------------------------
-                tabPanel(title = tags$div("Graphical analysis", class = "tabname"),
-                         br(),
-                         sidebarLayout(
-                           
-                           # side bar panel 
-                           sidebarPanel(width = 4,
-                                        fluidRow(selectInput("choose_graph", label = tags$div("Select graph", class ="TitleInput"),
-                                                             choices = c("Choisir" = "",
-                                                                         "Scatter plot" = "Nuage de points",
-                                                                         "Histogram" = "Histogramme", 
-                                                                         "Bar plot" = "Barplot", 
-                                                                         "Line plot" = "Evolution temporelle",
-                                                                         "Treemap", 
-                                                                         "Map" = "map"
-                                                             ),
-                                                             selected = "Nuage de points")),
-                                        uiOutput("input_graphic")
-                                        
-                           ),
-                           
-                           # the main panel 
-                           mainPanel(
-                             uiOutput("mainGraphic")
-                           )
-                         )
+                # the main panel 
+                mainPanel(
+                  uiOutput("mainGraphic")
+                )
+              )
+                        
                 ),
                 
                 # ---------------------------------------------------------
@@ -839,6 +793,10 @@ ui <- tagList(useShinyjs(),
                                           dataTableOutput("tabTeSg")
                                         ),
                                         
+                                        fluidRow(
+                                          dataTableOutput("avgTE")
+                                        ),
+                                        
                                         
                                         br()
                                ),
@@ -872,11 +830,8 @@ server <- function(input, output, session) {
     dfuser <- tryCatch(fread(input$user.data$datapath, stringsAsFactors = FALSE, 
                              na.strings = c("", "n\a", "NA", "..")))
     
-    if(
-      ("iso3" %in% names(dfuser)) &
-      ("year" %in% names(dfuser)) &
-      ("country" %in% names(dfuser))
-    ) {
+    if ("iso3" %in% names(dfuser) && "year" %in% names(dfuser) && "country" %in% names(dfuser)) {
+      # Delete unnecessary columns from user data
       
       # delete country_code variable from user data
       if(any(grepl("Country_Code", names(dfuser), ignore.case = TRUE))) {
@@ -895,29 +850,36 @@ server <- function(input, output, session) {
       
       df <- setDT(dfuser)
       
-      # uniformisation des variables ID 
+      # Rename columns for uniformity
       names(df)[names(df) == "iso3"] <- "Country_Code"
       names(df)[names(df) == "year"] <- "Year"
-      #names(df)[names(df) == "country"] <- "Country_Name"
       
-      # uniformisation des types pour les trois variables 
-      #df[, Country_Name := as.character(Country_Name)]
+      # Convert types
       df[, Country_Code := as.character(Country_Code)]
       df[, Year := as.numeric(Year)]
+      
+      df <- df %>%
+        left_join(CountriesWorldList, by = "Country_Code") %>%
+        mutate(country = ifelse(is.na(Country_Name), country, Country_Name)) %>%
+        select(-Country_Name) %>%
+        filter(!is.na(Country_Code))
       
       dfe <- dataApp %>%
         full_join(df, by = c("Country_Code", "Year")) %>%
         mutate(Country_Name = ifelse(is.na(Country_Name), country, Country_Name)) %>%
-        filter(!is.na(Country_Code))
+        rename(Old_Country_Name = Country_Name) %>% 
+        left_join(CountriesWorldList, by = "Country_Code") %>%
+        mutate(Country_Name = ifelse(is.na(Country_Name), Old_Country_Name, Country_Name)) %>%
+        select(-Old_Country_Name) %>%
+        filter(!is.na(Country_Code)) %>%
+        select(Country_Code, Country_Name, Year, everything())
+      
 
       return(dfe)
       
       # case user have iso3 and year
       
-    } else if(
-      ("iso3" %in% names(dfuser)) &
-      ("year" %in% names(dfuser))
-    ) {
+    } else if("iso3" %in% names(dfuser) && "year" %in% names(dfuser)) {
       
       # delete country_code variable from user data
       if(any(grepl("Country_Code", names(dfuser), ignore.case = TRUE))) {
@@ -942,46 +904,43 @@ server <- function(input, output, session) {
       
       
       # uniformisation des types pour les trois variables 
-      # df[, Country_Name := as.character(Country_Name)]
       df[, Country_Code := as.character(Country_Code)]
       df[, Year := as.numeric(Year)]
       
       dfe <- dataApp %>%
-        full_join(dfuser, by = c("Country_Code", "Year")) %>%
-        mutate(Country_Name = ifelse(is.na(Country_Name), country, Country_Name))
-      
-      dfe <- dfe %>%
+        full_join(df, by = c("Country_Code", "Year")) %>%
+        rename(Old_Country_Name = Country_Name) %>% 
         left_join(CountriesWorldList, by = "Country_Code") %>%
-        filter(!is.na(Country_Code))
-      df <- setDT(df)
+        mutate(Country_Name = ifelse(is.na(Country_Name), Old_Country_Name, Country_Name)) %>%
+        select(-Old_Country_Name) %>%
+        filter(!is.na(Country_Code)) %>%
+        select(Country_Code, Country_Name, Year, everything())
+
+
 
       return(dfe)
       
       # case where we have country and year and no iso3
-    } else if(
-      ("country" %in% names(dfuser)) &
-      ("year" %in% names(dfuser))
-    ) {
+    } else if("country" %in% names(dfuser) && "year" %in% names(dfuser)) {
       
-      # delete country_name variable from user data
-      if("Country_Name" %in% names(dfuser)) {
-        dfuser <- dfuser %>% select(-c(grep("Country_Name", names(dfuser),ignore.case=TRUE,value=TRUE)))
+      # delete country_code variable from user data
+      if(any(grepl("Country_Code", names(dfuser), ignore.case = TRUE))) {
+        dfuser <- dfuser %>% select(-c(grep("Country_Code", names(dfuser), ignore.case = TRUE, value = TRUE)))
       }
       
       # delete Year variable from user data
-      if("Year" %in% names(dfuser)) {
-        dfuser <- dfuser %>% select(-c(Year))
+      if(any(grepl("Year", names(dfuser), ignore.case = TRUE))) {
+        dfuser <- dfuser %>% select(-c(grep("Year", names(dfuser), ignore.case = TRUE, value = TRUE)))
       }
       
-      # delete country_Code variable from user data
-      if("Country_Code" %in% names(dfuser)) {
-        dfuser <- dfuser %>% select(-c(grep("Country_Code", names(dfuser),ignore.case=TRUE,value=TRUE)))
+      # delete country_name variable from user data
+      if(any(grepl("Country_Name", names(dfuser), ignore.case = TRUE))) {
+        dfuser <- dfuser %>% select(-c(grep("Country_Name", names(dfuser), ignore.case = TRUE, value = TRUE)))
       }
       
       df <- setDT(dfuser)
       
       # uniformisation des variables ID 
-      # names(df)[names(df) == "country"] <- "Country_Name"
       names(df)[names(df) == "year"] <- "Year"
       
       df$Country_Code <- countrycode(sourcevar = df$country, 
@@ -990,14 +949,19 @@ server <- function(input, output, session) {
       setDT(df)
       
       # uniformisation des types pour les trois variables 
-      # df[, Country_Name := as.character(Country_Name)]
       df[, Country_Code := as.character(Country_Code)]
       df[, Year := as.numeric(Year)]
+      
       
       dfe <- dataApp %>%
         full_join(df, by = c("Country_Code", "Year")) %>%
         mutate(Country_Name = ifelse(is.na(Country_Name), country, Country_Name)) %>%
-        filter(!is.na(Country_Code))
+        rename(Old_Country_Name = Country_Name) %>% 
+        left_join(CountriesWorldList, by = "Country_Code") %>%
+        mutate(Country_Name = ifelse(is.na(Country_Name), Old_Country_Name, Country_Name)) %>%
+        select(-Old_Country_Name) %>%
+        filter(!is.na(Country_Code)) %>%
+        select(Country_Code, Country_Name, Year, everything())
       
       return(dfe)
       
@@ -1008,6 +972,7 @@ server <- function(input, output, session) {
   }
   
 })
+  
 
 # importation error handling 
 output$importErrorUI <- renderUI({
@@ -1030,9 +995,9 @@ importError <- reactive({
   (!("year" %in% names(dfuser)))
   ) {
     
-    "Error! The specified instructions have not been followed"
+    return("Error! The specified instructions have not been followed")
   } else {
-    return()
+    return(NULL)
     
   }
 })
@@ -1248,14 +1213,6 @@ importError <- reactive({
       ) %>%
       ungroup() %>%
       select(-`Trading Bloc`)
-    
-    # dTaxUEMOA <- dataApp %>%
-    #   filter(`Trading Bloc` %in% "WAE") %>%
-    #   select(Country_Name, Country_Code, Year, all_of(TaxVarF)) %>%
-    #   group_by(Year) %>%
-    #   add_summary_rows(
-    #     Country_Name = "WAEMU", Country_Code = "WAEMU", across(where(is.numeric), ~ mean(., na.rm = TRUE))
-    #   )
     
     dtaxSSA <- dataApp %>%
       filter(Region %in% "Sub-Saharan Africa") %>%
@@ -2806,8 +2763,7 @@ importError <- reactive({
     
     
   })
-  
-  
+
   # ******************************************************************************************
   #                /* Reactives: Catching Inputs for Tax effort Estimation */
   # ******************************************************************************************
@@ -2830,6 +2786,8 @@ importError <- reactive({
                                   "Agriculture, forestry, and fishing, value added (% of GDP) [NV.AGR.TOTL.ZS]",
                                   "Trade (% of GDP) [NE.TRD.GNFS.ZS]", 
                                   "Total natural resources rents (% of GDP) [NY.GDP.TOTL.RT.ZS]"),  multiple = TRUE),
+      uiOutput("squaredP"),
+      
       checkboxInput("trendcb", label = "Trend", value = TRUE),
       selectizeInput("Sample", h5("Sample"), choices = unique(df_finale()$Country_Name), 
                      selected = cSSA, multiple = TRUE),
@@ -2846,7 +2804,15 @@ importError <- reactive({
     )
   })
   
-  lapply(c("InpSelecUser_ui"),
+  
+  output$squaredP <- renderUI({
+    req(input$v.predictor)
+    selectizeInput("v.sqpredictor", h5("Squared Predictor variables"), 
+                   choices = c("Select" = "", input$v.predictor),
+                   multiple = TRUE)
+  })
+  
+  lapply(c("InpSelecUser_ui", "squaredP"),
          function(x) outputOptions(output, x, suspendWhenHidden = FALSE))
   
   dependent_variable <- reactive({
@@ -2897,7 +2863,7 @@ importError <- reactive({
             .names = "Lag {.col}"
           ) 
         ) %>%
-        select(-c(predictor_variable()))
+        select(-c(all_of(predictor_variable())))
     } else {
       df <- df %>%
         arrange(Country_Code, Year)
@@ -2948,30 +2914,13 @@ importError <- reactive({
     predictor_var <- names(rct_selData())[-c(1:4)]
 
     df <- df %>%
-      select(Id, Country_Name, Year, Country_Code, dependent_variable(), everything())
+      select(Id, Country_Name, Year, Country_Code, all_of(dependent_variable()), everything())
     
     # data.table solution to replace all 0 with NA (without making error)
     setDT(df)
     for (i in c(dependent_variable(), predictor_var)) {
       set(df, which(df[[i]] == 0), i, NA)
     }
-    
-    # if(input$mLag > 0){
-    #   df <- df %>%
-    #     arrange(Id, Year) %>% 
-    #     group_by(Id) %>%
-    #     mutate(
-    #       across(
-    #         .cols = all_of(predictor_variable()),
-    #         .fns = ~ lag(.x, n =input$mLag),
-    #         .names = "Lag {.col}"
-    #       ) 
-    #     ) %>%
-    #     select(-c(predictor_variable()))
-    # } else {
-    #   df <- df %>%
-    #     arrange(Id, Year)
-    # }
     
     # suppress all strange characters from names 
     names(df) <- gsub("[^a-zA-Z]", "", names(df))
@@ -2985,49 +2934,6 @@ importError <- reactive({
   output$Seetable <- renderDataTable({
     datatable(DataSecGenMod())
   })
-  
-  # EstimationSfa <- reactive({
-  #   
-  #   model_data <<- DataSecGenMod() %>%
-  #     mutate(trend = Year - min(Year, na.rm = TRUE) +1)
-  # 
-  #   dep <- names(model_data)[5]
-  #   pred <- names(model_data)[-c(1:5, ncol(model_data))]
-  #   
-  #   if(input$trendcb == TRUE){
-  #     form <- as.formula(paste(paste0("log( ", dep, " )"),
-  #                              paste(paste("log( ", pred, " )", collapse = " + "), "+ trend"),
-  #                              sep = " ~ "))
-  #   } else {
-  #     form <- as.formula(paste(paste0("log( ", dep, " )"),
-  #                              paste("log( ", pred, " )", collapse = " + "),
-  #                              sep = " ~ "))
-  #   }
-  #   
-  #   
-  #   if(input$ModelChoice == "Bc92") {
-  #     model <- npsf::sf(formula = form,
-  #                       data = model_data, it = c("Id", "Year"),
-  #                       prod = TRUE, model = "BC1992",
-  #                       eff.time.invariant = FALSE, mean.u.0i.zero = TRUE)
-  #     return(model)
-  #     
-  #   } else if(input$ModelChoice == "Kh90") {
-  #     
-  #     model <- npsf::sf(formula = form,
-  #                       data = model_data, it = c("Id", "Year"),
-  #                       prod = TRUE,
-  #                       eff.time.invariant = FALSE, mean.u.0i.zero = TRUE)
-  #     return(model)
-  #   } else if(input$ModelChoice == "Kh90m") {
-  #     model <- npsf::sf(formula = form,
-  #                       data = model_data, it = c("Id", "Year"),
-  #                       prod = TRUE, model = "K1990modified",
-  #                       eff.time.invariant = FALSE, mean.u.0i.zero = TRUE)
-  #     return(model)
-  #   }
-  # })
-  
   
   EstimationSfa <- reactive({
     
@@ -3254,8 +3160,6 @@ importError <- reactive({
                 ))
   })
   
-  
-  
   output$avgTE <- renderDataTable(server = FALSE, {
     
     te.analysis <- ResTeScdModel()
@@ -3272,20 +3176,53 @@ importError <- reactive({
                  "Tax effort - Mode of conditional distribution",
                  `Tax effort` = "Tax effort - Battese and Coelli (1988)"))
       
+    } 
+    
+   
+    # Calculate Average Tax Effort by (Country, Tier)
+    df_tier <- te.analysis %>%
+      mutate(tier = cut(Year, breaks = 4, dig.lab = 4, include.lowest = TRUE)) %>% 
+      group_by(Country_Code, Country_Name, tier, .drop = TRUE) %>%
+      summarise("Average Tax effort (by Country, tier)" = mean(`Tax effort`, na.rm = TRUE), .groups = 'drop') %>%
+      pivot_wider(names_from = tier, values_from = `Average Tax effort (by Country, tier)`)
+    
+    # Calculate Overall Average Tax Effort by Country
+    df_country <- te.analysis %>%
+      group_by(Country_Code, Country_Name, .drop = TRUE) %>%
+      summarise("Average Tax effort (by Country)" = mean(`Tax effort`, na.rm = TRUE), .groups = 'drop')
+    
+    # Merge the results
+    df_result <- df_tier %>%
+      left_join(df_country, by = c("Country_Code", "Country_Name")) 
+    
+    round_df <- function(df, digits) {
+      nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+      df[,nums] <- round(df[,nums], digits = digits)
+      (df)
     }
     
-    te.analysis <- dataApp %>%
-      select(Country_Code, Country_Name, Year, `Total tax revenue as % GDP`, `Total natural resources rents (% of GDP) [NY.GDP.TOTL.RT.ZS]`)
     
-    dfmutate <- mutate(te.analysis, y10 = cut(Year, breaks = 4, dig.lab = 4, include.lowest = TRUE))
-    mod <- levels(dfmutate$y10)
-    dfagg <- aggregate(`Tax effort` ~ Country_Name, 
-                       data = dfmutate, mean, na.rm = TRUE)
+    # Round the values and filter out rows with NA
+    df_result <- round_df(df_result, digits = 3) %>%
+      filter(rowSums(is.na(.[, -1])) != ncol(.[, -1]))
     
+    
+    datatable(df_result, rownames = FALSE, 
+              extensions = c('Buttons'), 
+              options = list(
+                dom = 'Bfrtip',
+                buttons = c('colvis', 'excel', 'pdf'),
+                deferRender = TRUE,
+                scrollX = 400,
+                scrollY = 700,
+                scroller = TRUE
+              ))
+
   })
   
   
-  
+
+     
   
   
   
